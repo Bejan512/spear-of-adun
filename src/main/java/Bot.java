@@ -37,22 +37,11 @@ public class Bot extends DefaultBWListener {
         pylonCount = 0;
         nexusTraining = false;
 
-        System.out.println("STARTING LOCATIONG: " + String.valueOf(player.getStartLocation()));
         for(Base base : map.getBases()) {
-            if(base.isStartingLocation()) {
-                System.out.println("BASE: " + base.getLocation());
+            if(base.isStartingLocation() && !base.getLocation().equals(player.getStartLocation())) {
                 startLocations.add(base);
             }
-            if(base.getLocation() == player.getStartLocation()) {
-                playerBase = base;
-            }
         }
-        startLocations.remove(player.getStartLocation());
-        System.out.println("INDEX OF START LOCATION: " + String.valueOf(startLocations.indexOf(player.getStartLocation())));
-        for(Base base : startLocations) {
-            System.out.println("BASE LOCATION: " + String.valueOf(base.getLocation()));
-        }
-        System.out.println("PLAYER START LOCATION: " + String.valueOf(playerBase));
     }
 
     @Override
@@ -77,10 +66,16 @@ public class Bot extends DefaultBWListener {
         game.drawTextScreen(25, 90, "NUM BASES: " + String.valueOf(startLocations.size()));
 
         List<Unit> workers = new ArrayList<>();
+        List<Unit> gasWorkers = new ArrayList<>();
         List<Unit> buildings = new ArrayList<>();
         List<Unit> nexusList = new ArrayList<>();
         List<Unit> gateways = new ArrayList<>();
         List<Unit> zealots = new ArrayList<>();
+        List<Unit> dragoons = new ArrayList<>();
+        List<Unit> trainableBuildings = new ArrayList<>();
+        List<Unit> assimilators = new ArrayList<>();
+        List<Unit> cyberCores = new ArrayList<>();
+
         
 
         //create lists
@@ -94,6 +89,9 @@ public class Bot extends DefaultBWListener {
             if(unit.getType() == UnitType.Protoss_Zealot) {
                 zealots.add(unit);
             }
+            if(unit.getType() == UnitType.Protoss_Dragoon) {
+                dragoons.add(unit);
+            }
         }
         for(Unit building : buildings) {
             if(building.getType() == UnitType.Protoss_Nexus) {
@@ -101,6 +99,20 @@ public class Bot extends DefaultBWListener {
             }
             if(building.getType() == UnitType.Protoss_Gateway) {
                 gateways.add(building);
+            }
+            if(building.getType() == UnitType.Protoss_Assimilator) {
+                assimilators.add(building);
+            }
+            if(building.getType() == UnitType.Protoss_Cybernetics_Core) {
+                cyberCores.add(building);
+            }
+            if(building.canTrain()) {
+                trainableBuildings.add(building);
+            }
+        }
+        for(Unit worker : workers) {
+            if(gasWorkers.size() < 3) {
+                gasWorkers.add(worker);
             }
         }
 
@@ -126,10 +138,18 @@ public class Bot extends DefaultBWListener {
             }
         }
 
+        if(currentSupply > 24 && cyberCores.size() < 1) {
+            TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Cybernetics_Core, player.getStartLocation(), 30);
+            builder.build(UnitType.Protoss_Cybernetics_Core, buildLocation);
+        }
+
         if(gatewayCount >= 2) {
             for(Unit gateway : gateways) {
-                if(gateway.isTraining() == false) {
+                if(gateway.isTraining() == false && zealots.size() < 15) {
                     gateway.build(UnitType.Protoss_Zealot);
+                }
+                if(gateway.isTraining() == false && zealots.size() >= 15) {
+                    gateway.build(UnitType.Protoss_Dragoon);
                 }
             }
             if(currentFreeSupply < 4) {
@@ -137,14 +157,33 @@ public class Bot extends DefaultBWListener {
                 builder.build(UnitType.Protoss_Pylon, buildLocation);
             }
         }
-        if(zealots.size() >= 6) {
+        if(currentSupply > 30 && gatewayCount < 3) {
+            TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, player.getStartLocation(), 30);
+            builder.build(UnitType.Protoss_Gateway, buildLocation);
+            buildLocation = game.getBuildLocation(UnitType.Protoss_Assimilator, player.getStartLocation(), 30);
+            builder.build(UnitType.Protoss_Assimilator, buildLocation);
+            buildProbes = true;
+        }
+        if(currentSupply > 45 && gatewayCount < 5) {
+            TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, player.getStartLocation(), 30);
+            builder.build(UnitType.Protoss_Gateway, buildLocation);
+        }
+        if(zealots.size() >= 10 && dragoons.size() >= 5) {
             attacking = true;
         }
         if(attacking) {
             for(Unit zealot : zealots) {
                 if(zealot.isIdle()){
-                    zealot.attack(startLocations.get(1).getCenter());
+                    zealot.attack(startLocations.get(0).getCenter());
                 }
+            }
+            for(Unit dragoon : dragoons) {
+                if(dragoon.isIdle()){
+                    dragoon.attack(startLocations.get(0).getCenter());
+                }
+            }
+            if(zealots.size() <= 10) {
+                attacking = false;
             }
         }
 
@@ -152,9 +191,9 @@ public class Bot extends DefaultBWListener {
 
 
 
-        for(Unit zealot : zealots) {
-            game.drawTextMap(zealot.getPosition(), "ATTACKING? " + String.valueOf(zealot.isAttacking()));
-        }
+        // for(Unit zealot : zealots) {
+        //     game.drawTextMap(zealot.getPosition(), "ATTACKING? " + String.valueOf(zealot.isAttacking()));
+        // }
 
         //get builder
         for(Unit worker : workers) {
@@ -172,11 +211,23 @@ public class Bot extends DefaultBWListener {
             if(buildProbes && nexusTraining == false) {
                 nexus.build(UnitType.Protoss_Probe);
                 nexusTraining = nexus.isTraining();
-                System.out.println(nexus.isTraining());
             }
+        }
+        //stop building probes at max probes
+        if(workers.size() >= 30) {
+            buildProbes = false;
         }
 
         //send idle workers to mine
+        if(assimilators.size() > 0) {
+            if(assimilators.get(0).isCompleted()) {
+                for(Unit worker : gasWorkers) {
+                    if(worker.isIdle() || worker.isGatheringMinerals()) {
+                        worker.gather(assimilators.get(0));
+                    }
+                }
+            }
+        }
         for(Unit worker : workers) {
             if(worker.isIdle()) {
                 Unit closestMineral = null;
@@ -189,6 +240,12 @@ public class Bot extends DefaultBWListener {
                     }
                 }
                 worker.gather(closestMineral);
+            }
+        }
+        //cancel extra units being trained
+        for(Unit building : trainableBuildings) {
+            if(building.getTrainingQueue().size() > 1 && building.canCancelTrain()) {
+                building.cancelTrain(1);
             }
         }
         // //build pylons if supply blocked
