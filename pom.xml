@@ -41,7 +41,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>Bot</mainClass>
+                            <mainClass>spear_of_adun.Bot</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
