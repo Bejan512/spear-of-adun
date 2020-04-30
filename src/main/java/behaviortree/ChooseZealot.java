@@ -25,9 +25,9 @@ public class ChooseZealot extends Leaf {
   public void doAction() {
 
     for(Unit gateway : gamestate.gateways) {
-          gamestate.chosenUnit = UnitType.Protoss_Zealot;
-          gamestate.chosenBuilding = gateway;
-          this.control.finishWithSuccess();
+      gamestate.chosenUnit = UnitType.Protoss_Zealot;
+      gamestate.chosenBuilding = gateway;
+      this.control.finishWithSuccess();
       
     }
 
