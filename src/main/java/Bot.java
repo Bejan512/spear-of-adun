@@ -19,21 +19,32 @@ public class Bot extends DefaultBWListener {
     private Player enemy;
     private Unit builder;
     private int builderID;
-    private BWMap map;
     private int gatewayCount;
     private int pylonCount;
     private boolean nexusTraining;
     private boolean attacking;
     private Base playerBase;
-    List<Base> startLocations = new ArrayList<>();
+
+    private static Sequence trainingTree;
+
+
+    private static void createTrainingTree() {
+        ChooseZealot cZealot =  new ChooseZealot("CHOOSEZEALOT", gamestate);
+        CheckResources cr = new CheckResources("CHECKRESOURCES", gamestate);
+        TrainUnit tr = new TrainUnit("TRAINUNIT", gamestate);
+        Selector chooseUnit = new Selector("CHOOSEUNIT", gamestate, cZealot);
+        Sequence train = new Sequence("TRAINTREE", gamestate, chooseUnit, cr, tr);
+        trainingTree = train;
+    }
+
+
 
     @Override
     public void onStart() {
         game = bwClient.getGame();
         BWEM bwem = new BWEM(game);
         bwem.initialize();
-        map = bwem.getMap();
-        map.assignStartingLocationsToSuitableBases();
+        
         
         enemy = game.enemy();
         builder = null;
@@ -43,14 +54,12 @@ public class Bot extends DefaultBWListener {
 
         gamestate = new GameState(game, bwem);
         gamestate.buildProbes = true;
+        gamestate.initMap();
+        gamestate.initStartLocations();
+        createTrainingTree();
 
 
-
-        for(Base base : map.getBases()) {
-            if(base.isStartingLocation() && !base.getLocation().equals(gamestate.player.getStartLocation())) {
-                startLocations.add(base);
-            }
-        }
+        
     }
 
     @Override
@@ -60,7 +69,6 @@ public class Bot extends DefaultBWListener {
         List<Unit> gasWorkers = new ArrayList<>();
         List<Unit> buildings = new ArrayList<>();
         List<Unit> nexusList = new ArrayList<>();
-        List<Unit> gateways = new ArrayList<>();
         List<Unit> zealots = new ArrayList<>();
         List<Unit> dragoons = new ArrayList<>();
         List<Unit> highTemplars = new ArrayList<>();
@@ -114,7 +122,7 @@ public class Bot extends DefaultBWListener {
                 nexusList.add(building);
             }
             if(building.getType() == UnitType.Protoss_Gateway) {
-                gateways.add(building);
+                gamestate.gateways.add(building);
             }
             if(building.getType() == UnitType.Protoss_Assimilator) {
                 assimilators.add(building);
@@ -171,153 +179,163 @@ public class Bot extends DefaultBWListener {
             TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, gamestate.player.getStartLocation(), 30);            
             builder.build(UnitType.Protoss_Gateway, buildLocation);
         }
-        if(gamestate.currentSupply == 26) {
-            gamestate.buildProbes = false;
-            for(Unit gateway : gateways) {
-                if(!gateway.isTraining()) {
-                    gateway.train(UnitType.Protoss_Zealot);
-                }
-            }
-        }
-        if(gamestate.currentSupply == 30) {
-            if(pylonCount < 2){
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Pylon, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Pylon, buildLocation);
-            }
-            for(Unit gateway : gateways) {
-                if(!gateway.isTraining()) {
-                    gateway.train(UnitType.Protoss_Zealot);
-                }
-            }
-        }
-        if(gamestate.currentSupply >= 31 && gamestate.currentSupply < 42) {
-            if(archives.size() > 1 && archons.size() < 4 && gamestate.player.gas() >= 150) {
-                for(Unit gateway : gateways) {
-                    if(!gateway.isTraining() && gamestate.player.gas() >= 150) {
-                        gateway.train(UnitType.Protoss_High_Templar);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            else {
-                for(Unit gateway : gateways) {
-                    if(!gateway.isTraining()) {
-                        gateway.train(UnitType.Protoss_Zealot);
-                    }
-                }
-            }
-        }
+
+        trainingTree.start();
+
+
+
+
+
+
+
+
+        // if(gamestate.currentSupply == 26) {
+        //     gamestate.buildProbes = false;
+        //     for(Unit gateway : gateways) {
+        //         if(!gateway.isTraining()) {
+        //             gateway.train(UnitType.Protoss_Zealot);
+        //         }
+        //     }
+        // }
+        // if(gamestate.currentSupply == 30) {
+        //     if(pylonCount < 2){
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Pylon, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Pylon, buildLocation);
+        //     }
+        //     for(Unit gateway : gateways) {
+        //         if(!gateway.isTraining()) {
+        //             gateway.train(UnitType.Protoss_Zealot);
+        //         }
+        //     }
+        // }
+        // if(gamestate.currentSupply >= 31 && gamestate.currentSupply < 42) {
+        //     if(archives.size() > 1 && archons.size() < 4 && gamestate.player.gas() >= 150) {
+        //         for(Unit gateway : gateways) {
+        //             if(!gateway.isTraining() && gamestate.player.gas() >= 150) {
+        //                 gateway.train(UnitType.Protoss_High_Templar);
+        //             }
+        //             else {
+        //                 break;
+        //             }
+        //         }
+        //     }
+        //     else {
+        //         for(Unit gateway : gateways) {
+        //             if(!gateway.isTraining()) {
+        //                 gateway.train(UnitType.Protoss_Zealot);
+        //             }
+        //         }
+        //     }
+        // }
         
-        if(gamestate.currentSupply == 42) {
-            if(pylonCount < 3) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Pylon, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Pylon, buildLocation);
-            }
-            for(Unit gateway : gateways) {
-                gateway.train(UnitType.Protoss_Zealot);
-            }
-        }
-        if(gamestate.currentSupply >= 40 && gamestate.currentSupply < 54) {
-            if(archives.size() > 0 && darkTemplars.size() < 6 && gamestate.player.gas() >= 150) {
-                for(Unit gateway : gateways) {
-                    if(!gateway.isTraining() && gamestate.player.gas() >= 150) {
-                        gateway.train(UnitType.Protoss_Dark_Templar);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            else {
-                for(Unit gateway : gateways) {
-                    if(!gateway.isTraining()) {
-                        gateway.train(UnitType.Protoss_Zealot);
-                    }
-                }
-            }
+        // if(gamestate.currentSupply == 42) {
+        //     if(pylonCount < 3) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Pylon, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Pylon, buildLocation);
+        //     }
+        //     for(Unit gateway : gateways) {
+        //         gateway.train(UnitType.Protoss_Zealot);
+        //     }
+        // }
+        // if(gamestate.currentSupply >= 40 && gamestate.currentSupply < 54) {
+        //     if(archives.size() > 0 && darkTemplars.size() < 6 && gamestate.player.gas() >= 150) {
+        //         for(Unit gateway : gateways) {
+        //             if(!gateway.isTraining() && gamestate.player.gas() >= 150) {
+        //                 gateway.train(UnitType.Protoss_Dark_Templar);
+        //             }
+        //             else {
+        //                 break;
+        //             }
+        //         }
+        //     }
+        //     else {
+        //         for(Unit gateway : gateways) {
+        //             if(!gateway.isTraining()) {
+        //                 gateway.train(UnitType.Protoss_Zealot);
+        //             }
+        //         }
+        //     }
             
-        }
-        if(gamestate.currentSupply >= 54) {
-            if(citadels.size() > 0 && citadels.get(0).isCompleted()) {
-                citadels.get(0).upgrade(UpgradeType.Leg_Enhancements);
-            }
-            if(assimilators.size() < 1) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Assimilator, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Assimilator, buildLocation);
-            }
-            else if(cyberCores.size() < 1) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Cybernetics_Core, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Cybernetics_Core, buildLocation);
-                gamestate.buildProbes = true;
-            }
-            else if(citadels.size() < 1) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Citadel_of_Adun, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Citadel_of_Adun, buildLocation);
-            }
-            else if(gateways.size() < 3) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Gateway, buildLocation);
-            }
-            else {
-                gamestate.buildProbes = false;
-            }
-        }
-        if(gamestate.currentSupply >= 54 && gamestate.buildProbes == false) {
-            if(archives.size() > 0 && darkTemplars.size() < 6) {
-                for(Unit gateway : gateways) {
-                    if(!gateway.isTraining()) {
-                        gateway.train(UnitType.Protoss_Dark_Templar);
-                    }
-                }
-            } 
-            else {
-                for(Unit gateway : gateways) {
-                    if(!gateway.isTraining()) {
-                        gateway.train(UnitType.Protoss_Zealot);
-                    }
-                }
-            }
-            if(forges.size() < 1) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Forge, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Forge, buildLocation); 
-            }
-            if(forges.size() > 0) {
-                forges.get(0).upgrade(UpgradeType.Protoss_Ground_Weapons);
-                if(cannons.size() < 1) {
-                    TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Photon_Cannon, gamestate.player.getStartLocation(), 35);
-                    builder.build(UnitType.Protoss_Photon_Cannon, buildLocation); 
-                }
-                if(archives.size() < 1) {
-                    TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Templar_Archives, gamestate.player.getStartLocation(), 35);
-                    builder.build(UnitType.Protoss_Templar_Archives, buildLocation); 
-                }
-            }
-        }
+        // }
+        // if(gamestate.currentSupply >= 54) {
+        //     if(citadels.size() > 0 && citadels.get(0).isCompleted()) {
+        //         citadels.get(0).upgrade(UpgradeType.Leg_Enhancements);
+        //     }
+        //     if(assimilators.size() < 1) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Assimilator, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Assimilator, buildLocation);
+        //     }
+        //     else if(cyberCores.size() < 1) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Cybernetics_Core, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Cybernetics_Core, buildLocation);
+        //         gamestate.buildProbes = true;
+        //     }
+        //     else if(citadels.size() < 1) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Citadel_of_Adun, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Citadel_of_Adun, buildLocation);
+        //     }
+        //     else if(gateways.size() < 3) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Gateway, buildLocation);
+        //     }
+        //     else {
+        //         gamestate.buildProbes = false;
+        //     }
+        // }
+        // if(gamestate.currentSupply >= 54 && gamestate.buildProbes == false) {
+        //     if(archives.size() > 0 && darkTemplars.size() < 6) {
+        //         for(Unit gateway : gateways) {
+        //             if(!gateway.isTraining()) {
+        //                 gateway.train(UnitType.Protoss_Dark_Templar);
+        //             }
+        //         }
+        //     } 
+        //     else {
+        //         for(Unit gateway : gateways) {
+        //             if(!gateway.isTraining()) {
+        //                 gateway.train(UnitType.Protoss_Zealot);
+        //             }
+        //         }
+        //     }
+        //     if(forges.size() < 1) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Forge, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Forge, buildLocation); 
+        //     }
+        //     if(forges.size() > 0) {
+        //         forges.get(0).upgrade(UpgradeType.Protoss_Ground_Weapons);
+        //         if(cannons.size() < 1) {
+        //             TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Photon_Cannon, gamestate.player.getStartLocation(), 35);
+        //             builder.build(UnitType.Protoss_Photon_Cannon, buildLocation); 
+        //         }
+        //         if(archives.size() < 1) {
+        //             TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Templar_Archives, gamestate.player.getStartLocation(), 35);
+        //             builder.build(UnitType.Protoss_Templar_Archives, buildLocation); 
+        //         }
+        //     }
+        // }
 
-        if(zealots.size() >= 19) {
-            for(Unit zealot : zealots) {
-                if(zealot.isIdle()) {
-                    zealot.attack(startLocations.get(0).getCenter());
-                }
-            }
-            if(darkTemplars.size() > 0) {
-                for(Unit darkTemplar : darkTemplars) {
-                    if(darkTemplar.isIdle()) {
-                        darkTemplar.attack(startLocations.get(0).getCenter());
-                    }
-                } 
-            }
-            if(gatewayCount < 4) {
-                TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, gamestate.player.getStartLocation(), 25);
-                builder.build(UnitType.Protoss_Gateway, buildLocation); 
-            }
-        }
+        // if(zealots.size() >= 19) {
+        //     for(Unit zealot : zealots) {
+        //         if(zealot.isIdle()) {
+        //             zealot.attack(gamestate.startLocations.get(0).getCenter());
+        //         }
+        //     }
+        //     if(darkTemplars.size() > 0) {
+        //         for(Unit darkTemplar : darkTemplars) {
+        //             if(darkTemplar.isIdle()) {
+        //                 darkTemplar.attack(gamestate.startLocations.get(0).getCenter());
+        //             }
+        //         } 
+        //     }
+        //     if(gatewayCount < 4) {
+        //         TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Gateway, gamestate.player.getStartLocation(), 25);
+        //         builder.build(UnitType.Protoss_Gateway, buildLocation); 
+        //     }
+        // }
 
-        if(highTemplars.size() >= 2) {
-            highTemplars.get(0).useTech(TechType.Archon_Warp, highTemplars.get(1));
-        }
+        // if(highTemplars.size() >= 2) {
+        //     highTemplars.get(0).useTech(TechType.Archon_Warp, highTemplars.get(1));
+        // }
         
        
 
@@ -480,7 +498,7 @@ public class Bot extends DefaultBWListener {
             }
         }
         //build pylons if supply blocked
-        if(gamestate.currentFreeSupply < 4 && gamestate.currentSupply > 46) {
+        if(gamestate.currentFreeSupply < 4) {
             if(builder != null && !builder.isConstructing() && gamestate.player.minerals() > 100) {
                 TilePosition buildLocation = game.getBuildLocation(UnitType.Protoss_Pylon, gamestate.player.getStartLocation(), 60);
                 builder.build(UnitType.Protoss_Pylon, buildLocation);
@@ -507,8 +525,11 @@ public class Bot extends DefaultBWListener {
         game.drawTextScreen(25, 60, "GATEWAY COUNT: " + String.valueOf(gatewayCount));
         game.drawTextScreen(25, 70, "PYLON COUNT: " + String.valueOf(pylonCount));
         game.drawTextScreen(25, 80, "NEXUS TRAINING?: " + String.valueOf(nexusTraining));
-        game.drawTextScreen(25, 90, "NUM BASES: " + String.valueOf(startLocations.size()));
+        game.drawTextScreen(25, 90, "NUM BASES: " + String.valueOf(gamestate.startLocations.size()));
         game.drawTextScreen(25, 100, "NUM WORKERS: " + String.valueOf(workers.size()));
+        game.drawTextScreen(25, 110, "CHOSEN UNIT: " + gamestate.chosenUnit);
+        game.drawTextScreen(25, 120, "CHOSEN BUILDING " + gamestate.chosenBuilding);
+
 
 
 
