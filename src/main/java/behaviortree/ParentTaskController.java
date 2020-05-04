@@ -20,8 +20,8 @@ public class ParentTaskController extends TaskController {
   }
   
   public void reset() {
-    super.reset();
     this.currentTask = childTasks.get(0);
+    super.reset();
   }
 
 

@@ -25,17 +25,22 @@ public class TrainUnit extends Leaf {
   @Override
   public void doAction() {
     gamestate.chosenBuilding.train(gamestate.chosenUnit);
-    this.control.finishWithSuccess();
+    if(!gamestate.chosenBuilding.isTraining()) {
+      System.out.println("TRAIN UNIT " + gamestate.chosenUnit + " SUCCEEDED");
+      this.control.finishWithSuccess();
+    }
   }
 
   @Override
   public void end() {
-    
+    gamestate.chosenBuilding = null;
+    gamestate.chosenUnit = null;
+    System.out.println("TRAIN UNIT ENDED");
   }
 
   @Override
   public void start() {
-    System.out.println("TRAIN UNIT " + gamestate.chosenUnit + " STARTED");
+    System.out.println("TRAIN UNIT STARTED");
     this.doAction();
   }
 }

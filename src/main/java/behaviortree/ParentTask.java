@@ -3,9 +3,11 @@ package spear_of_adun;
 public abstract class ParentTask extends Task {
 
   ParentTaskController control;
+  public String name;
 
   public ParentTask(String name, GameState gamestate) {
     super(name, gamestate);
+    this.name = name;
     CreateController();
   }
 
@@ -40,11 +42,11 @@ public abstract class ParentTask extends Task {
     else if(control.currentTask.getControl().finished()) {
       control.currentTask.getControl().end();
       if(control.currentTask.getControl().succeeded()) {
-        System.out.println("SEQUENCE CHILD SUCCESS");
+        System.out.println("COMPOSITE CHILD SUCCESS");
         this.childSucceeded();
       }
       if(control.currentTask.getControl().failed()) {
-        System.out.println("SEQUENCE CHILD FAILURE");
+        System.out.println("COMPOSITE CHILD FAILURE");
         this.childFailed();
       }
     }
@@ -55,12 +57,14 @@ public abstract class ParentTask extends Task {
 
   @Override
   public void end() {
+    System.out.println(name + " COMPOSITE ENDED");
 
   }
   
   @Override
   public void start() {
     control.currentTask = control.childTasks.get(control.currentTaskPosition);
+    System.out.println(name + " COMPOSITE STARTED");
     this.doAction();
   }
 

@@ -33,7 +33,8 @@ public class Bot extends DefaultBWListener {
         CheckResources cr = new CheckResources("CHECKRESOURCES", gamestate);
         TrainUnit tr = new TrainUnit("TRAINUNIT", gamestate);
         Selector chooseUnit = new Selector("CHOOSEUNIT", gamestate, cZealot);
-        Sequence train = new Sequence("TRAINTREE", gamestate, chooseUnit, cr, tr);
+        Sequence train = new Sequence("TRAIN SEQUENCE", gamestate, chooseUnit);
+        // trainingTree = new BehaviorTree("TRAINING TREE", gamestate, train);
         trainingTree = train;
     }
 
